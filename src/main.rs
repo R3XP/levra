@@ -6,6 +6,7 @@ use views::{Blog, Home, Navbar};
 
 /// Define a components module that contains all shared components for our app.
 mod components;
+mod shared;
 /// Define a views module that contains the UI for all Layouts and Routes for our app.
 mod views;
 
@@ -40,10 +41,69 @@ const MAIN_CSS: Asset = asset!("/assets/styling/main.css");
 const TAILWIND_CSS: Asset = asset!("/assets/tailwind.css");
 
 fn main() {
-    // The `launch` function is the main entry point for a dioxus app. It takes a component and renders it with the platform feature
-    // you have enabled
+    #[cfg(feature = "server")]
+    tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(launch_server());
+
+    #[cfg(not(feature = "server"))]
     dioxus::launch(App);
 }
+
+#[cfg(feature = "server")]
+async fn launch_server() {
+    // Connect to dioxus' logging infrastructure
+
+    use surrealdb::{engine::local::RocksDb, opt::Config, Surreal};
+    dioxus::logger::initialize_default();
+
+    // Connect to the IP and PORT env vars passed by the Dioxus CLI (or your dockerfile)
+    let socket_addr = dioxus::cli_config::fullstack_address_or_localhost();
+
+    // Build a custom axum router
+    let router = axum::Router::new()
+        .serve_dioxus_application(ServeConfigBuilder::new(), App)
+        .into_make_service();
+
+    let db = Surreal::new::<RocksDb>("db").await.unwrap();
+    db.use_ns("test").use_db("test").await.unwrap();
+
+    println!("Launching the server now! o.o7");
+    // And launch it!
+    let listener = tokio::net::TcpListener::bind(socket_addr).await.unwrap();
+    axum::serve(listener, router).await.unwrap();
+}
+
+// If we're in server mode, run custom setup and launch the SSR server manually
+//#[tokio::main]
+//async fn main() {
+//    // === Custom backend setup: init SurrealDB, read/write file ===
+//    use once_cell::sync::OnceCell;
+//    use std::{fs, sync::Arc};
+//    use surrealdb::{engine::local::Db, opt::auth::Root, Surreal};
+//
+//    static DB: OnceCell<Arc<Surreal<Db>>> = OnceCell::new();
+//
+//    let db = Surreal::new::<Db>("memory").await.unwrap();
+//    db.signin(Root {
+//        username: "root",
+//        password: "root",
+//    })
+//    .await
+//    .unwrap();
+//    DB.set(Arc::new(db)).unwrap();
+//
+//    let contents = fs::read_to_string("startup.txt").unwrap_or("default content".into());
+//    println!("Startup file says: {}", contents);
+//    fs::write("startup_log.txt", format!("Booted with: {}", contents)).unwrap();
+//
+//    // Launch the server with custom port
+//    dioxus_fullstack::prelude::LaunchBuilder::new(App)
+//        .address(([127, 0, 0, 1], 4269))
+//        .launch()
+//        .await
+//        .unwrap();
+//}
 
 /// App is the main component of our app. Components are the building blocks of dioxus apps. Each component is a function
 /// that takes some props and returns an Element. In this case, App takes no props because it is the root of our app.
