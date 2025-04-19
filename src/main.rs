@@ -4,11 +4,21 @@ use dioxus::prelude::*;
 
 use views::{Blog, Home, Navbar};
 
+#[cfg(feature = "server")]
+use dbmagic::{init_db, DbHandle};
+#[cfg(feature = "server")]
+use surrealdb::{engine::local::RocksDb, opt::Config, Surreal};
+
 /// Define a components module that contains all shared components for our app.
 mod components;
 mod shared;
 /// Define a views module that contains the UI for all Layouts and Routes for our app.
 mod views;
+
+#[cfg(feature = "server")]
+mod server {}
+#[cfg(feature = "server")]
+mod dbmagic;
 
 /// The Route enum is used to define the structure of internal routes in our app. All route enums need to derive
 /// the [`Routable`] trait, which provides the necessary methods for the router to work.
@@ -52,9 +62,6 @@ fn main() {
 
 #[cfg(feature = "server")]
 async fn launch_server() {
-    // Connect to dioxus' logging infrastructure
-
-    use surrealdb::{engine::local::RocksDb, opt::Config, Surreal};
     dioxus::logger::initialize_default();
 
     // Connect to the IP and PORT env vars passed by the Dioxus CLI (or your dockerfile)
@@ -68,42 +75,17 @@ async fn launch_server() {
     let db = Surreal::new::<RocksDb>("db").await.unwrap();
     db.use_ns("test").use_db("test").await.unwrap();
 
+    dbg!(db.create(("counter", "c")).content(0i32).await);
+
+    let me = "thiis!";
+
+    init_db(db);
+
     println!("Launching the server now! o.o7");
     // And launch it!
     let listener = tokio::net::TcpListener::bind(socket_addr).await.unwrap();
     axum::serve(listener, router).await.unwrap();
 }
-
-// If we're in server mode, run custom setup and launch the SSR server manually
-//#[tokio::main]
-//async fn main() {
-//    // === Custom backend setup: init SurrealDB, read/write file ===
-//    use once_cell::sync::OnceCell;
-//    use std::{fs, sync::Arc};
-//    use surrealdb::{engine::local::Db, opt::auth::Root, Surreal};
-//
-//    static DB: OnceCell<Arc<Surreal<Db>>> = OnceCell::new();
-//
-//    let db = Surreal::new::<Db>("memory").await.unwrap();
-//    db.signin(Root {
-//        username: "root",
-//        password: "root",
-//    })
-//    .await
-//    .unwrap();
-//    DB.set(Arc::new(db)).unwrap();
-//
-//    let contents = fs::read_to_string("startup.txt").unwrap_or("default content".into());
-//    println!("Startup file says: {}", contents);
-//    fs::write("startup_log.txt", format!("Booted with: {}", contents)).unwrap();
-//
-//    // Launch the server with custom port
-//    dioxus_fullstack::prelude::LaunchBuilder::new(App)
-//        .address(([127, 0, 0, 1], 4269))
-//        .launch()
-//        .await
-//        .unwrap();
-//}
 
 /// App is the main component of our app. Components are the building blocks of dioxus apps. Each component is a function
 /// that takes some props and returns an Element. In this case, App takes no props because it is the root of our app.
