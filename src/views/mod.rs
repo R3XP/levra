@@ -11,6 +11,9 @@
 mod home;
 pub use home::Home;
 
+mod counter;
+pub use counter::Counter;
+
 mod blog;
 pub use blog::Blog;
 

@@ -1,24 +1,29 @@
 [package]
 name = "levra"
 version = "0.1.0"
-authors = ["Till.Preikschat <till.preikschat@smart-cjm.com>"]
+authors = ["R3XP <rex_p@web.de>", "Witti <Witti@Witti>"]
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 dioxus = { version = "0.6.0", features = ["router", "fullstack"] }
+surrealdb = { version = "2.2.2", optional = true }
+tokio = { version = "1", features = ["full"], optional = true }
+once_cell = { version = "1.18", optional = true} 
+axum = { version = "0.7.9", optional = true} 
+serde = "1.0.219"
+serde_json = "1.0.140"
 
 [features]
 default = ["web"]
-# The feature that are only required for the web = ["dioxus/web"] build target should be optional and only enabled in the web = ["dioxus/web"] feature
+
+# Die Plattform-Features (du kannst davon jeweils eins aktivieren)
 web = ["dioxus/web"]
-# The feature that are only required for the desktop = ["dioxus/desktop"] build target should be optional and only enabled in the desktop = ["dioxus/desktop"] feature
 desktop = ["dioxus/desktop"]
-# The feature that are only required for the mobile = ["dioxus/mobile"] build target should be optional and only enabled in the mobile = ["dioxus/mobile"] feature
 mobile = ["dioxus/mobile"]
+server = ["dioxus/server", "dep:tokio", "dep:surrealdb", "surrealdb/kv-rocksdb", "dep:once_cell", "dep:axum"]
 
 [profile]
+# Deine Profile kannst du bei Bedarf ergänzen
 
 [profile.wasm-dev]
 inherits = "dev"
